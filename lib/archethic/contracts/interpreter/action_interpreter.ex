@@ -132,7 +132,7 @@ defmodule Archethic.Contracts.Interpreter.ActionInterpreter do
     # where we can access variables from all of them
     # `acc = [ref1]` means read variable from scope.ref1 or scope
     # `acc = [ref1, ref2]` means read variable from scope.ref1.ref2 or scope.ref1 or scope
-    acc = []
+    acc = [[]]
 
     {new_ast, _} =
       Macro.traverse(
