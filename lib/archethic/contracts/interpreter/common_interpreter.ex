@@ -9,6 +9,7 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
   alias Archethic.Contracts.Interpreter.ASTHelper, as: AST
   alias Archethic.Contracts.Interpreter.Library
   alias Archethic.Contracts.Interpreter.Scope
+  alias Archethic.Contracts.Interpreter.ScopeHelper
 
   @modules_whitelisted Library.list_common_modules()
 
@@ -51,13 +52,14 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
     # create a "ref" for each block
     # references are not AST valid, so we convert them to binary
     # (ps: charlist is a slow alternative because the Macro.traverse will step into every character)
-    ref = :erlang.list_to_binary(:erlang.ref_to_list(make_ref()))
-    new_acc = acc ++ [ref]
+
+    new_acc = ScopeHelper.add_ref(acc)
+    current_acc = List.first(new_acc)
 
     # create the child scope in parent scope
     create_scope_ast =
       quote do
-        Scope.create(unquote(new_acc))
+        Scope.create(unquote(current_acc))
       end
 
     {
@@ -164,9 +166,11 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
         _node = {:=, _, [{{:atom, var_name}, _, nil}, value]},
         acc
       ) do
+    current_acc = List.first(acc)
+
     new_node =
       quote do
-        Scope.write_cascade(unquote(acc), unquote(var_name), unquote(value))
+        Scope.write_cascade(unquote(current_acc), unquote(var_name), unquote(value))
       end
 
     {
@@ -177,9 +181,11 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
   # Dot access non-nested (x.y)
   def prewalk(_node = {{:., _, [{{:atom, map_name}, _, nil}, {:atom, key_name}]}, _, _}, acc) do
+    current_acc = List.first(acc)
+
     new_node =
       quote do
-        Scope.read(unquote(acc), unquote(map_name), unquote(key_name))
+        Scope.read(unquote(current_acc), unquote(map_name), unquote(key_name))
       end
 
     {new_node, acc}
@@ -203,9 +209,11 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
         acc
       ) do
     # accessor can be a variable, a function call, a dot access, a string
+    current_acc = List.first(acc)
+
     new_node =
       quote do
-        Scope.read(unquote(acc), unquote(map_name), unquote(accessor))
+        Scope.read(unquote(current_acc), unquote(map_name), unquote(accessor))
       end
 
     {new_node, acc}
@@ -282,7 +290,8 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
         acc,
         _
       ) do
-    {node, List.delete_at(acc, -1)}
+    new_acc = ScopeHelper.remove_ref(acc)
+    {node, new_acc}
   end
 
   # common modules call
@@ -333,9 +342,11 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
         acc,
         _
       ) do
+    current_acc = List.first(acc)
+
     new_node =
       quote do
-        Scope.read(unquote(acc), unquote(var_name))
+        Scope.read(unquote(current_acc), unquote(var_name))
       end
 
     {new_node, acc}
@@ -358,10 +369,12 @@ defmodule Archethic.Contracts.Interpreter.CommonInterpreter do
 
     # transform the for-loop into Enum.each
     # and create a variable in the scope
+    current_acc = List.first(acc)
+
     new_node =
       quote do
         Enum.each(unquote(list), fn x ->
-          Scope.write_at(unquote(acc), unquote(var_name), x)
+          Scope.write_at(unquote(current_acc), unquote(var_name), x)
 
           unquote(block)
         end)

@@ -65,7 +65,7 @@ defmodule Archethic.Contracts.Interpreter.FunctionInterpreter do
     # `acc = [ref1]` means read variable from scope.ref1 or scope
     # `acc = [ref1, ref2]` means read variable from scope.ref1.ref2 or scope.ref1 or scope
     # function's args are added to the acc by the interpreter
-    acc = []
+    acc = [[]]
 
     {new_ast, _} =
       Macro.traverse(
